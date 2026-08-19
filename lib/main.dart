@@ -7,14 +7,13 @@ import 'game/chicken_up_game.dart';
 import 'screens/game_over_overlay.dart';
 import 'screens/hud_overlay.dart';
 import 'screens/menu_screen.dart';
+import 'ui/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Storage.init();
-  I18n.setLang(Storage.lang);
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  I18n.lang.value = Storage.lang;
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const ChickenUpApp());
 }
 
@@ -26,7 +25,14 @@ class ChickenUpApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Chicken Up',
-      theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: AppColors.skyBlue,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.cornYellow,
+          primary: AppColors.cornYellow,
+        ),
+      ),
       home: const GameScaffold(),
     );
   }
@@ -57,13 +63,10 @@ class _GameScaffoldState extends State<GameScaffold> {
     switch (game.runState.value) {
       case RunState.menu:
         overlays.add('menu');
-        break;
       case RunState.playing:
         overlays.add('hud');
-        break;
       case RunState.gameOver:
         overlays.add('gameOver');
-        break;
     }
   }
 
@@ -80,7 +83,10 @@ class _GameScaffoldState extends State<GameScaffold> {
         game: game,
         initialActiveOverlays: const ['menu'],
         overlayBuilderMap: {
-          'menu': (context, game) => MenuScreen(game: game),
+          'menu': (context, game) => Container(
+                color: const Color(0xC70A0F19),
+                child: MenuScreen(game: game),
+              ),
           'hud': (context, game) => HudOverlay(game: game),
           'gameOver': (context, game) => GameOverOverlay(game: game),
         },

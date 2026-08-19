@@ -3,7 +3,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-import '../data/skins.dart';
+import '../data/catalog.dart';
 import '../data/storage.dart';
 import 'components/corn_pickup.dart';
 import 'components/obstacle.dart';
@@ -36,7 +36,11 @@ class ChickenUpGame extends FlameGame with TapCallbacks {
   Future<void> onLoad() async {
     super.onLoad();
     groundY = size.y - 60;
-    player = Player(groundY: groundY, skin: skinById(Storage.currentSkin));
+    player = Player(
+      groundY: groundY,
+      skin: Catalog.skin(Storage.currentSkin),
+      hat: Catalog.hat(Storage.currentHat),
+    );
     player.position = Vector2(size.x * 0.22, groundY);
   }
 
@@ -52,7 +56,8 @@ class ChickenUpGame extends FlameGame with TapCallbacks {
     player.position = Vector2(size.x * 0.22, groundY);
     player.velocityY = 0;
     player.onGround = true;
-    player.skin = skinById(Storage.currentSkin);
+    player.skin = Catalog.skin(Storage.currentSkin);
+    player.hat = Catalog.hat(Storage.currentHat);
     if (!contains(player)) add(player);
     runState.value = RunState.playing;
   }

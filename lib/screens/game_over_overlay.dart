@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/i18n.dart';
 import '../game/chicken_up_game.dart';
+import '../ui/theme.dart';
+import '../ui/wood_widgets.dart';
 
 class GameOverOverlay extends StatelessWidget {
   final ChickenUpGame game;
@@ -8,73 +10,67 @@ class GameOverOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(24),
-        constraints: const BoxConstraints(maxWidth: 380),
-        decoration: BoxDecoration(
-          color: const Color(0xFFB07A3E),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF6B4423), width: 3),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(I18n.t('gameOverRun'), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white)),
-            const SizedBox(height: 6),
-            Text(I18n.t('gameOverSub'), style: const TextStyle(color: Colors.white70)),
-            const SizedBox(height: 16),
-            ValueListenableBuilder<int>(
-              valueListenable: game.score,
-              builder: (context, value, _) => Text(
-                '${I18n.t('score')}$value',
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+    return ValueListenableBuilder<String>(
+      valueListenable: I18n.lang,
+      builder: (context, _, __) => Container(
+        color: const Color(0xC70A0F19),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.s20),
+            child: WoodPanel(
+              showRivets: true,
+              padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.s32, horizontal: AppSpacing.s24),
+              maxWidth: 380,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(I18n.t('gameOverTitle_run'), style: AppTypography.h1.copyWith(fontSize: 28)),
+                  const SizedBox(height: AppSpacing.s4),
+                  Text(
+                    I18n.t('gameOverSub_run'),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body.copyWith(color: AppColors.cream.withOpacity(0.9)),
+                  ),
+                  const SizedBox(height: AppSpacing.s16),
+                  ValueListenableBuilder<int>(
+                    valueListenable: game.score,
+                    builder: (context, v, _) => Text(
+                      '${I18n.t('finalScoreLabel')}${v.toString().padLeft(6, '0')}',
+                      style: AppTypography.h2.copyWith(fontSize: 20),
+                    ),
+                  ),
+                  ValueListenableBuilder<int>(
+                    valueListenable: game.highScore,
+                    builder: (context, v, _) => Text(
+                      '${I18n.t('finalHighLabel_run')}${v.toString().padLeft(6, '0')}',
+                      style: AppTypography.hint,
+                    ),
+                  ),
+                  ValueListenableBuilder<int>(
+                    valueListenable: game.cornThisRun,
+                    builder: (context, v, _) => Text(
+                      '🌽 ${I18n.t('finalCornLabel_collected')}$v',
+                      style: AppTypography.hint,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s24),
+                  WoodButton(
+                    label: I18n.t('startBtnPlayAgain'),
+                    color: WoodBtnColor.yellow,
+                    primary: true,
+                    onPressed: game.startRun,
+                  ),
+                  const SizedBox(height: AppSpacing.s8),
+                  WoodButton(
+                    label: I18n.t('backToMenuBtn'),
+                    color: WoodBtnColor.red,
+                    onPressed: () => game.runState.value = RunState.menu,
+                  ),
+                ],
               ),
             ),
-            ValueListenableBuilder<int>(
-              valueListenable: game.highScore,
-              builder: (context, value, _) => Text(
-                '${I18n.t('record')}$value',
-                style: const TextStyle(color: Colors.white70),
-              ),
-            ),
-            ValueListenableBuilder<int>(
-              valueListenable: game.cornThisRun,
-              builder: (context, value, _) => Text(
-                '🌽 +$value',
-                style: const TextStyle(color: Colors.white70),
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: game.startRun,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC83D),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: Text(I18n.t('playAgain'), style: const TextStyle(fontWeight: FontWeight.w800)),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => game.runState.value = RunState.menu,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white70),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: const Text('MENU'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
