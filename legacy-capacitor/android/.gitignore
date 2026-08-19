@@ -93,7 +93,8 @@ lint/tmp/
 # capacitor-cordova-android-plugins  <- versionada de proposito (CI nao roda 'npx cap sync')
 
 # Copied web assets
-app/src/main/assets/public
+# app/src/main/assets/public  <- versionado de proposito (CI nao roda 'npx cap sync';
+#   e aqui que fica o jogo em si — sem isso o app abre em branco)
 
 # Generated Config files
 # app/src/main/assets/capacitor.config.json  <- versionado de proposito (CI nao roda 'npx cap sync')

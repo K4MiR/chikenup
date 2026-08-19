@@ -47,6 +47,15 @@ jobs:
       - name: Instalar dependencias do Capacitor
         run: npm install
 
+      # O 'npx cap sync' copia www/ para android/app/src/main/assets/public/.
+      # Fazemos a copia explicitamente para garantir que o APK sempre leve a
+      # versao atual do jogo (ja aconteceu de ir uma copia antiga).
+      - name: Sincronizar o jogo (www -> assets/public)
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          cp -R www/. android/app/src/main/assets/public/
+          echo "index.html: $(wc -c < android/app/src/main/assets/public/index.html) bytes"
+
       - name: Checar secrets de assinatura
         run: |
           if [ -z "${{ secrets.LEGACY_KEYSTORE_BASE64 }}" ]; then
