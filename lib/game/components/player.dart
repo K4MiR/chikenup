@@ -84,6 +84,6 @@ class Player extends PositionComponent {
       ..close();
     canvas.drawPath(beakPath, beakPaint);
 
-    canvas.drawCircle(Offset(size.x * 0.58, -size.y * 0.75), 2.2, const Paint()..color = const Color(0xFF2B2B2B));
+    canvas.drawCircle(Offset(size.x * 0.58, -size.y * 0.75), 2.2, Paint()..color = const Color(0xFF2B2B2B));
   }
 }

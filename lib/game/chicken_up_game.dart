@@ -14,7 +14,7 @@ enum RunState { menu, playing, gameOver }
 /// Núcleo do jogo (modo Corrida). Física, spawn de obstáculos/milho,
 /// pontuação e progressão de dificuldade — o equivalente Dart do loop
 /// principal da versão web (`update()`/`draw()` do Canvas).
-class ChickenUpGame extends FlameGame with TapDetector {
+class ChickenUpGame extends FlameGame with TapCallbacks {
   final ValueNotifier<RunState> runState = ValueNotifier(RunState.menu);
   final ValueNotifier<int> score = ValueNotifier(0);
   final ValueNotifier<int> cornThisRun = ValueNotifier(0);
@@ -69,17 +69,17 @@ class ChickenUpGame extends FlameGame with TapDetector {
   }
 
   @override
-  void onTapDown(TapDownInfo info) {
+  void onTapDown(TapDownEvent event) {
     if (runState.value == RunState.playing) player.jump();
   }
 
   @override
-  void onTapUp(TapUpInfo info) {
+  void onTapUp(TapUpEvent event) {
     player.releaseHold();
   }
 
   @override
-  void onTapCancel() {
+  void onTapCancel(TapCancelEvent event) {
     player.releaseHold();
   }
 

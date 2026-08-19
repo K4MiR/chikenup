@@ -73,6 +73,12 @@ if (keystorePropertiesFile.exists()) {
         print(text)
         sys.exit(1)
     text = debug_ref.sub('signingConfig = signingConfigs.getByName("release")', text, count=1)
+
+    # Android 16 = API 36. Forca compileSdk/targetSdk explicitos em vez de
+    # depender do default do Flutter (flutter.compileSdkVersion), que muda
+    # de versao pra versao do SDK.
+    text = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion', 'compileSdk = 36', text)
+    text = re.sub(r'targetSdk\s*=\s*flutter\.targetSdkVersion', 'targetSdk = 36', text)
 else:
     header = '''import java.util.Properties
 import java.io.FileInputStream
@@ -108,6 +114,9 @@ if (keystorePropertiesFile.exists()) {
         print(text)
         sys.exit(1)
     text = debug_ref.sub('signingConfig signingConfigs.release', text, count=1)
+
+    text = re.sub(r'compileSdkVersion\s+flutter\.compileSdkVersion', 'compileSdkVersion 36', text)
+    text = re.sub(r'targetSdkVersion\s+flutter\.targetSdkVersion', 'targetSdkVersion 36', text)
 
 path.write_text(text)
 print(f"Signing config inserida em {path}")
