@@ -2930,9 +2930,9 @@
 
   var DIFFICULTY_SPAWN_MULT = 1;
   // As velocidades em DIFFICULTIES foram calibradas (e testadas na "janela de reação")
-  // para uma tela de referência de ~390px de largura (celular em pé). Como o jogo agora
-  // roda na horizontal (tela bem mais larga), escalamos a velocidade proporcionalmente
-  // à largura real da tela, pra manter o mesmo tempo de reação relativo em qualquer formato.
+  // para uma tela de referência de ~390px de largura (celular em pé) — que é a orientação
+  // travada do app. A escala pela largura real continua aqui para manter o mesmo tempo de
+  // reação relativo em telas maiores (tablets) ou menores.
   var SPEED_REF_W = 390;
 
   function applyDifficulty() {
