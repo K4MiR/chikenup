@@ -512,6 +512,10 @@
   #rankingPanel h2 { display: flex; align-items: center; justify-content: center; gap: 8px; }
   #rankingPanel h2 .hudIcon { width: 22px; height: 22px; color: var(--corn-yellow); }
   #rankingRefreshBtn { margin: 0 0 14px; }
+  #rankingResetNote {
+    font-size: 11px; font-weight: 800; letter-spacing: .3px; color: var(--cream);
+    opacity: .85; text-shadow: 0 1px 0 rgba(0,0,0,0.35); margin: 2px 0 8px;
+  }
   #rankingStateMsg {
     font-size: 13px; color: var(--cream); text-shadow: 0 1px 0 rgba(0,0,0,0.35);
     padding: 24px 10px; text-align: center; line-height: 1.6;
@@ -889,6 +893,7 @@
     <button class="woodIconBtn gameCloseBtn" data-close-overlay="rankingOverlay" title="Fechar"></button>
     <div id="rankingHeader">
       <h2><span class="hudIcon" id="rankingTitleIcon"></span><span id="rankingTitleText">Ranking Global</span></h2>
+      <div id="rankingResetNote"></div>
       <button class="woodIconBtn small" id="rankingRefreshBtn" title="Atualizar"></button>
     </div>
     <div id="rankingScrollArea">
@@ -1305,29 +1310,62 @@
       return { displayName: u.displayName || '', photoURL: u.photoURL || '' };
     }
 
+    // ---- Ranking semanal ----
+    // Cada semana tem a própria subcoleção (leaderboards/{semana}/players), então
+    // o ranking "zera" sozinho na virada da semana — nada é apagado, a disputa
+    // só passa a acontecer em outra coleção. A semana começa na segunda-feira
+    // 00:00 UTC, o mesmo instante para todos os jogadores.
+    function weekIdOf(date) {
+      var d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+      // ISO-8601: a quinta-feira da semana define a qual ano ela pertence
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+      var jan1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      var week = Math.ceil((((d - jan1) / 86400000) + 1) / 7);
+      return d.getUTCFullYear() + '-W' + (week < 10 ? '0' + week : String(week));
+    }
+    function currentWeekId() { return weekIdOf(new Date()); }
+    function weekPlayers() {
+      return db.collection('leaderboards').doc(currentWeekId()).collection('players');
+    }
+    // Segunda-feira 00:00 UTC seguinte — usado pra mostrar quanto falta pra zerar.
+    function nextResetAt() {
+      var now = new Date();
+      var d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      d.setUTCDate(d.getUTCDate() + (8 - (d.getUTCDay() || 7)));
+      return d;
+    }
+
     // Só grava se o score novo for maior que o já salvo NO SERVIDOR — usa transação
     // pra ficar seguro mesmo com duas sincronizações concorrentes (item 16 do spec).
     function submitScoreIfRecord(score, meta) {
       return init().then(function (available) {
         if (!available || !uid) return null;
-        var docRef = db.collection('leaderboard').doc(uid);
+        var weekId = currentWeekId();
+        var docRef = weekPlayers().doc(uid);
         var userRef = db.collection('users').doc(uid);
         var gProfile = getGoogleProfile();
         var nickname = (getNickname() || (gProfile && gProfile.displayName) || '').slice(0, 18) || 'Jogador';
         var photoUrl = getAvatarMode() === 'photo' ? getAvatarPhoto() : (gProfile ? gProfile.photoURL : '');
         var now = firebase.firestore.FieldValue.serverTimestamp();
         return db.runTransaction(function (tx) {
+          // as duas leituras vêm antes de qualquer escrita (exigência do Firestore)
           return tx.get(docRef).then(function (snap) {
-            var current = snap.exists ? (snap.data().bestScore || 0) : 0;
-            if (score <= current) return { updated: false, oldScore: current };
-            tx.set(docRef, {
-              uid: uid, displayName: nickname, photoUrl: photoUrl,
-              bestScore: score, updatedAt: now, scoreAchievedAt: now
-            }, { merge: true });
-            tx.set(userRef, {
-              uid: uid, displayName: nickname, photoUrl: photoUrl, bestScore: score, updatedAt: now
-            }, { merge: true });
-            return { updated: true, oldScore: current, newScore: score };
+            return tx.get(userRef).then(function (userSnap) {
+              var current = snap.exists ? (snap.data().bestScore || 0) : 0;
+              if (score <= current) return { updated: false, oldScore: current };
+              tx.set(docRef, {
+                uid: uid, weekId: weekId, displayName: nickname, photoUrl: photoUrl,
+                bestScore: score, updatedAt: now, scoreAchievedAt: now
+              }, { merge: true });
+              // users/{uid} guarda o recorde de TODOS os tempos: ele não pode cair
+              // quando o ranking da semana zera.
+              var allTime = userSnap.exists ? (userSnap.data().bestScore || 0) : 0;
+              tx.set(userRef, {
+                uid: uid, displayName: nickname, photoUrl: photoUrl,
+                bestScore: score > allTime ? score : allTime, updatedAt: now
+              }, { merge: true });
+              return { updated: true, oldScore: current, newScore: score };
+            });
           });
         }).then(function (result) {
           if (result && result.updated) {
@@ -1348,7 +1386,7 @@
     function getTopPlayers() {
       return init().then(function (available) {
         if (!available) return null;
-        return db.collection('leaderboard')
+        return weekPlayers()
           .orderBy('bestScore', 'desc')
           .orderBy('scoreAchievedAt', 'asc')
           .limit(RANKING_SIZE)
@@ -1366,7 +1404,7 @@
     function getMyPosition(score) {
       return init().then(function (available) {
         if (!available || !uid) return null;
-        var q = db.collection('leaderboard').where('bestScore', '>', score);
+        var q = weekPlayers().where('bestScore', '>', score);
         if (q.count) return q.count().get().then(function (snap) { return snap.data().count + 1; });
         return q.get().then(function (snap) { return snap.size + 1; });
       });
@@ -1375,6 +1413,7 @@
     return {
       isAvailable: isAvailable, init: init, submitScoreIfRecord: submitScoreIfRecord,
       getTopPlayers: getTopPlayers, getMyPosition: getMyPosition, getUid: function () { return uid; },
+      getWeekId: currentWeekId, getNextResetAt: nextResetAt,
       signInWithGoogle: signInWithGoogle, signOutGoogle: signOutGoogle, getGoogleProfile: getGoogleProfile
     };
   })();
@@ -1478,6 +1517,7 @@
   var rankingRefreshBtn = document.getElementById('rankingRefreshBtn');
   var rankingStateMsg = document.getElementById('rankingStateMsg');
   var rankingList = document.getElementById('rankingList');
+  var rankingResetNote = document.getElementById('rankingResetNote');
   var rankingMeBar = document.getElementById('rankingMeBar');
   var rankingMePos = document.getElementById('rankingMePos');
   var rankingMeName = document.getElementById('rankingMeName');
@@ -3229,6 +3269,8 @@
       achSecretDesc: 'Secret achievement',
       rankPlayerFallback: 'Player',
       rankYouFallback: 'You',
+      rankWeeklyLabel: 'Weekly ranking',
+      rankResetsIn: 'resets in ',
       rankPointsSuffix: ' points',
       rankUnavailable: 'Global ranking is not available in this version of the game yet.',
       rankLoading: 'Loading ranking...',
@@ -3838,7 +3880,21 @@
     }
   }
 
+  // "Zera em 3d 12h" — o ranking é da semana, então avisamos quanto falta pra
+  // virada (segunda-feira 00:00 UTC).
+  function renderRankingResetNote() {
+    if (!rankingResetNote) return;
+    if (!Leaderboard.isAvailable() || !Leaderboard.getNextResetAt) { rankingResetNote.textContent = ''; return; }
+    var left = Leaderboard.getNextResetAt().getTime() - Date.now();
+    if (left < 0) left = 0;
+    var days = Math.floor(left / 86400000);
+    var hours = Math.floor((left % 86400000) / 3600000);
+    var when = days > 0 ? (days + 'd ' + hours + 'h') : (hours + 'h');
+    rankingResetNote.textContent = t('rankWeeklyLabel', 'Ranking semanal') + ' · ' + t('rankResetsIn', 'zera em ') + when;
+  }
+
   function loadRanking() {
+    renderRankingResetNote();
     if (!Leaderboard.isAvailable()) {
       setRankingState('offline', t('rankUnavailable', 'Ranking global ainda não está disponível nesta versão do jogo.'));
       return;
@@ -6007,6 +6063,31 @@
       else if (state === 'paused') resumeGame();
     }
   });
+
+  // Com o app minimizado (ou a tela desligada) nada pode continuar tocando.
+  // stopMusic() so encerra a melodia; efeitos ja agendados no AudioContext
+  // continuariam soando, entao suspendemos o contexto inteiro. A partida tambem
+  // e pausada pra ninguem perder o jogo em segundo plano.
+  var audioSuspendedByHide = false;
+  function handleAppHidden() {
+    if (state === 'playing') pauseGame();
+    stopMusic();
+    if (audioCtx && audioCtx.state === 'running') {
+      audioSuspendedByHide = true;
+      try { audioCtx.suspend(); } catch (e) {}
+    }
+  }
+  function handleAppVisible() {
+    if (!audioSuspendedByHide) return;
+    audioSuspendedByHide = false;
+    // volta so o contexto: a musica recomeca pelo fluxo normal (retomar partida,
+    // novo jogo), pra nao tocar sozinha com o jogo parado no menu de pausa
+    if (audioCtx) { try { audioCtx.resume(); } catch (e) {} }
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) handleAppHidden(); else handleAppVisible();
+  });
+  window.addEventListener('pagehide', handleAppHidden);
 
   var lastGameOverParams = null;
   function renderGameOverTexts() {

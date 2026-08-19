@@ -29,8 +29,19 @@ service cloud.firestore {
         && d.displayName.size() <= 40;
     }
 
-    match /leaderboard/{uid} {
+    // Ranking da semana corrente. Cada semana é uma subcoleção própria
+    // (leaderboards/2026-W34/players/{uid}), então a disputa zera sozinha na
+    // virada da semana sem precisar apagar documento nenhum.
+    match /leaderboards/{weekId}/players/{uid} {
       allow read: if true; // ranking é público
+      allow create, update: if isOwner(uid) && hasValidScoreFields();
+      allow delete: if false;
+    }
+
+    // Ranking antigo (all-time), mantido só pra leitura das versões já
+    // instaladas do app não quebrarem enquanto os jogadores não atualizam.
+    match /leaderboard/{uid} {
+      allow read: if true;
       allow create, update: if isOwner(uid) && hasValidScoreFields();
       allow delete: if false;
     }
