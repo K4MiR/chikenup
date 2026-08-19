@@ -1,5 +1,11 @@
 {
   "appId": "com.shiftcriativo.chickenup",
   "appName": "Chicken Up",
-  "webDir": "www"
+  "webDir": "www",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  }
 }

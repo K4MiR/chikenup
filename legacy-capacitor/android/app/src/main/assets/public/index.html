@@ -1181,17 +1181,56 @@
     // init()) que já sustenta o ranking. Fazer login "upgrada" essa mesma conta via
     // linkWithPopup (preserva o uid e o recorde já salvo) em vez de trocar de uid.
     //
-    // AVISO: signInWithPopup/linkWithPopup do Firebase Auth via navegador só funciona
-    // num browser de verdade. Dentro da WebView embutida do Capacitor (o app Android
-    // publicado), o Google bloqueia esse fluxo (erro "disallowed_useragent") — pra
-    // funcionar no APK real vai precisar do plugin nativo @capacitor-firebase/authentication
-    // (isso exige Node/npm, que não está disponível neste ambiente). Isso aqui funciona
-    // hoje testando no navegador; no app publicado precisa desse passo extra depois.
+    // O fluxo de popup/redirect do Firebase NÃO funciona dentro da WebView do
+    // Capacitor: o Google abre a tela de consentimento no Chrome externo e o
+    // sessionStorage não é compartilhado, então volta "missing initial state"
+    // (tela branca). No app usamos o plugin nativo @capacitor-firebase/authentication,
+    // que faz o login pelo próprio Android e devolve um idToken; esse token vira
+    // uma credencial do Firebase JS. No navegador seguimos com o popup normal.
+    function isNativeApp() {
+      return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    }
+
+    function nativeGoogleCredential() {
+      var plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseAuthentication;
+      if (!plugin) return Promise.reject(new Error('plugin de autenticação nativa indisponível'));
+      return plugin.signInWithGoogle().then(function (res) {
+        var idToken = res && res.credential && res.credential.idToken;
+        if (!idToken) throw new Error('sem idToken no retorno do plugin');
+        return firebase.auth.GoogleAuthProvider.credential(idToken);
+      });
+    }
+
     function signInWithGoogle() {
       return init().then(function () {
         if (typeof firebase === 'undefined' || !firebase.auth) return null;
-        var provider = new firebase.auth.GoogleAuthProvider();
         var current = auth.currentUser;
+
+        // ---- app Android: login nativo ----
+        if (isNativeApp()) {
+          return nativeGoogleCredential().then(function (cred) {
+            // se já existe um convidado, vincula pra não perder o uid/recorde
+            var flow = (current && current.isAnonymous)
+              ? current.linkWithCredential(cred)
+              : auth.signInWithCredential(cred);
+            return flow.catch(function (err) {
+              // conta Google já usada antes: entra nela em vez de falhar
+              if (err && err.code === 'auth/credential-already-in-use') {
+                return auth.signInWithCredential(cred);
+              }
+              throw err;
+            });
+          }).then(function (result) {
+            uid = result.user.uid;
+            return getGoogleProfile();
+          }).catch(function (err) {
+            console.warn('Leaderboard: falha no login nativo com Google', err);
+            return null;
+          });
+        }
+
+        // ---- navegador: popup normal ----
+        var provider = new firebase.auth.GoogleAuthProvider();
         var flow = (current && current.isAnonymous) ? current.linkWithPopup(provider) : auth.signInWithPopup(provider);
         return flow.then(function (result) {
           uid = result.user.uid;
@@ -1211,7 +1250,16 @@
 
     function signOutGoogle() {
       if (!auth) return Promise.resolve();
-      return auth.signOut().then(function () { return init(); });
+      // no app tambem encerra a sessao do plugin nativo, senao o proximo login
+      // reentra direto na mesma conta sem deixar escolher outra
+      var nativeOut = Promise.resolve();
+      if (isNativeApp()) {
+        var plugin = window.Capacitor.Plugins.FirebaseAuthentication;
+        if (plugin && plugin.signOut) nativeOut = plugin.signOut().catch(function () {});
+      }
+      return nativeOut.then(function () {
+        return auth.signOut();
+      }).then(function () { return init(); });
     }
 
     function getGoogleProfile() {

@@ -37,3 +37,6 @@ keystore-info.txt
 .vscode/
 *.iml
 .DS_Store
+
+# credenciais do Firebase — entram via secret no CI, nao no repo
+google-services.json

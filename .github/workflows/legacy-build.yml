@@ -47,14 +47,25 @@ jobs:
       - name: Instalar dependencias do Capacitor
         run: npm install
 
-      # O 'npx cap sync' copia www/ para android/app/src/main/assets/public/.
-      # Fazemos a copia explicitamente para garantir que o APK sempre leve a
-      # versao atual do jogo (ja aconteceu de ir uma copia antiga).
-      - name: Sincronizar o jogo (www -> assets/public)
+      # google-services.json nao vai no repo (publico). Vem do secret.
+      - name: Decodificar google-services.json
         run: |
-          mkdir -p android/app/src/main/assets/public
-          cp -R www/. android/app/src/main/assets/public/
+          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+            echo "::error::Secret GOOGLE_SERVICES_JSON nao configurado. Login com Google nao funcionaria."
+            exit 1
+          fi
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+          python3 -c "import json;d=json.load(open('android/app/google-services.json'));print('projeto:',d['project_info']['project_id']);print('clients oauth:',[c['client_type'] for c in d['client'][0]['oauth_client']])"
+
+      # 'cap sync' copia www/ para assets/public E registra os plugins nativos
+      # (capacitor.settings.gradle / capacitor.build.gradle). Sem ele o plugin
+      # de autenticacao nao entra no build.
+      - name: Sincronizar Capacitor (www + plugins nativos)
+        run: |
+          npx cap sync android
+          echo "--- conferindo ---"
           echo "index.html: $(wc -c < android/app/src/main/assets/public/index.html) bytes"
+          echo "plugins registrados:"; cat android/capacitor.settings.gradle
 
       - name: Checar secrets de assinatura
         run: |
