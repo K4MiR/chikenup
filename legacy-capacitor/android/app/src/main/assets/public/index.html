@@ -1146,7 +1146,7 @@
   }
 
   var Leaderboard = (function () {
-    var db = null, auth = null, uid = null, ready = null;
+    var db = null, auth = null, uid = null, ready = null, uidWatcher = false;
 
     function isAvailable() { return !!FIREBASE_CONFIG && typeof firebase !== 'undefined'; }
 
@@ -1154,21 +1154,40 @@
       if (ready) return ready;
       if (!isAvailable()) { ready = Promise.resolve(false); return ready; }
       try {
-        firebase.initializeApp(FIREBASE_CONFIG);
+        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
         db = firebase.firestore();
         auth = firebase.auth();
-        ready = auth.signInAnonymously().then(function (result) {
-          if (result && result.additionalUserInfo && result.additionalUserInfo.isNewUser) {
-            trackEvent('guest_started', {});
-          }
-          return new Promise(function (resolve) {
-            var unsub = auth.onAuthStateChanged(function (user) {
-              if (user) { uid = user.uid; unsub(); resolve(true); }
+        // Mantem o uid sempre igual ao usuario corrente (login, logout, troca de
+        // conta). Sem isso o uid fica preso no valor capturado na primeira vez.
+        // So registra uma vez: init() roda de novo depois de cada signOut.
+        if (!uidWatcher) {
+          uidWatcher = true;
+          auth.onAuthStateChanged(function (user) { uid = user ? user.uid : null; });
+        }
+        // ATENCAO: nao chamar signInAnonymously() de cara. Se ja existe sessao
+        // salva (Google, por exemplo), signInAnonymously TROCA esse usuario por um
+        // convidado novo: o jogador aparece deslogado a cada abertura do app e
+        // cada abertura vira uma linha nova no ranking. So criamos convidado
+        // quando de fato nao ha ninguem logado.
+        ready = new Promise(function (resolve) {
+          var unsub = null, settled = false;
+          function handle(user) {
+            if (settled) return;
+            settled = true;
+            if (unsub) unsub();
+            if (user) { uid = user.uid; resolve(true); return; }
+            auth.signInAnonymously().then(function (result) {
+              if (result && result.additionalUserInfo && result.additionalUserInfo.isNewUser) {
+                trackEvent('guest_started', {});
+              }
+              uid = result.user.uid;
+              resolve(true);
+            }).catch(function (err) {
+              console.warn('Leaderboard: falha ao autenticar', err);
+              resolve(false);
             });
-          });
-        }).catch(function (err) {
-          console.warn('Leaderboard: falha ao autenticar', err);
-          return false;
+          }
+          unsub = auth.onAuthStateChanged(handle);
         });
       } catch (e) {
         console.warn('Leaderboard: falha ao iniciar', e);
@@ -1259,7 +1278,13 @@
       }
       return nativeOut.then(function () {
         return auth.signOut();
-      }).then(function () { return init(); });
+      }).then(function () {
+        // zera o estado memoizado: senao init() devolve a promessa antiga (ja
+        // resolvida com o uid do Google) e nenhum convidado novo e criado
+        ready = null;
+        uid = null;
+        return init();
+      });
     }
 
     function getGoogleProfile() {
@@ -1734,8 +1759,37 @@
   var vibrationEnabled = localStorage.getItem(VIBRATION_KEY) !== '0';
   var analyticsEnabled = localStorage.getItem(ANALYTICS_KEY) !== '0';
 
+  // navigator.vibrate existe na WebView do Android mas nao aciona o motor de
+  // vibracao do aparelho (a Vibration API so vale pro Chrome). No app usamos o
+  // plugin nativo @capacitor/haptics; no navegador seguimos com navigator.vibrate.
+  var _hapticsPlugin;
+  function nativeHaptics() {
+    if (_hapticsPlugin === undefined) {
+      _hapticsPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) || null;
+    }
+    return _hapticsPlugin;
+  }
+
   function vibrate(pattern) {
     if (!vibrationEnabled) return;
+    var h = nativeHaptics();
+    if (h && h.vibrate) {
+      // o plugin nao aceita padrao [liga, desliga, liga...], entao remontamos a
+      // sequencia com setTimeout: indices pares vibram, impares sao a pausa
+      var seq = typeof pattern === 'number' ? [pattern] : (pattern || []);
+      var at = 0;
+      for (var i = 0; i < seq.length; i++) {
+        if (i % 2 === 0) {
+          (function (ms, delay) {
+            setTimeout(function () {
+              try { var p = h.vibrate({ duration: ms }); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+            }, delay);
+          })(seq[i], at);
+        }
+        at += seq[i];
+      }
+      return;
+    }
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
 
@@ -3213,7 +3267,9 @@
     'statsByModeTitle', 'closeStatsBtn', 'labTitle', 'labSubtitle', 'labGravityTitleLabel',
     'closeLabBtn', 'configTitle', 'cfgAudioTitleLabel', 'cfgMusicLabel', 'cfgSfxLabel',
     'cfgVibrationLabel', 'cfgMusicVolLabel', 'cfgSfxVolLabel', 'cfgGameplayTitleLabel',
-    'cfgLangTitleLabel', 'cfgAccountTitleLabel', 'cfgGoogleSignInText', 'cfgSignOutBtn',
+    // cfgSignOutBtn NAO entra aqui: e um cfgDangerBtn, o texto dele e montado por
+    // wireDangerButton (icone + label) e reaplicado via __refreshDangerLabel.
+    'cfgLangTitleLabel', 'cfgAccountTitleLabel', 'cfgGoogleSignInText',
     'cfgPrivacyTitleLabel', 'cfgAnalyticsLabel', 'cfgDataTitleLabel', 'cfgOpenStatsBtnText',
     'cfgAboutTitleLabel', 'closeConfigBtn', 'openPrivacyBtnText', 'openTermsBtnText',
     'privacyTitle', 'closePrivacyBtn', 'termsTitle', 'closeTermsBtn',
@@ -3268,6 +3324,11 @@
     if (typeof renderDailyReward === 'function') renderDailyReward();
     if (cfgResetProgress && cfgResetProgress.__refreshDangerLabel) cfgResetProgress.__refreshDangerLabel();
     if (cfgResetRecords && cfgResetRecords.__refreshDangerLabel) cfgResetRecords.__refreshDangerLabel();
+    if (cfgSignOutBtn && cfgSignOutBtn.__refreshDangerLabel) cfgSignOutBtn.__refreshDangerLabel();
+    // Grades montadas por JS dentro das configuracoes: sem redesenhar aqui elas
+    // so trocam de idioma quando o painel e fechado e aberto de novo.
+    if (typeof renderDifficultyGrid === 'function' && cfgDiffGrid) renderDifficultyGrid();
+    if (typeof renderConfigStats === 'function') renderConfigStats();
     if (typeof renderGameOverTexts === 'function' && finalScoreWrap && !finalScoreWrap.classList.contains('hidden')) renderGameOverTexts();
     if (typeof renderLegalTexts === 'function') {
       var privacyOv = document.getElementById('privacyOverlay'), termsOv = document.getElementById('termsOverlay');
@@ -4078,7 +4139,7 @@
       trackEvent('login_google_error', {});
     });
   });
-  wireDangerButton(cfgSignOutBtn, 'Sair da conta', function () {
+  wireDangerButton(cfgSignOutBtn, 'cfgSignOutBtn', 'Sair da conta', function () {
     Leaderboard.signOutGoogle().then(function () {
       renderAccountSection();
       renderProfile();
