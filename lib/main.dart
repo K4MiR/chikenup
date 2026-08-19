@@ -2,16 +2,20 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'data/i18n.dart';
+import 'data/daily_reward.dart';
 import 'data/storage.dart';
 import 'game/chicken_up_game.dart';
 import 'screens/game_over_overlay.dart';
 import 'screens/hud_overlay.dart';
 import 'screens/menu_screen.dart';
+import 'screens/mode_select_screen.dart';
+import 'screens/pause_overlay.dart';
 import 'ui/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Storage.init();
+  await DailyReward.init();
   I18n.lang.value = Storage.lang;
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const ChickenUpApp());
@@ -57,14 +61,19 @@ class _GameScaffoldState extends State<GameScaffold> {
 
   void _onStateChanged() {
     final overlays = game.overlays;
-    overlays.remove('menu');
-    overlays.remove('hud');
-    overlays.remove('gameOver');
+    for (final o in ['menu', 'modeSelect', 'hud', 'paused', 'gameOver']) {
+      overlays.remove(o);
+    }
     switch (game.runState.value) {
       case RunState.menu:
         overlays.add('menu');
+      case RunState.modeSelect:
+        overlays.add('modeSelect');
       case RunState.playing:
         overlays.add('hud');
+      case RunState.paused:
+        overlays.add('hud');
+        overlays.add('paused');
       case RunState.gameOver:
         overlays.add('gameOver');
     }
@@ -87,7 +96,9 @@ class _GameScaffoldState extends State<GameScaffold> {
                 color: const Color(0xC70A0F19),
                 child: MenuScreen(game: game),
               ),
+          'modeSelect': (context, game) => ModeSelectScreen(game: game),
           'hud': (context, game) => HudOverlay(game: game),
+          'paused': (context, game) => PauseOverlay(game: game),
           'gameOver': (context, game) => GameOverOverlay(game: game),
         },
       ),

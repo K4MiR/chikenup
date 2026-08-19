@@ -1,10 +1,14 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import '../../data/gameplay_defs.dart';
 import '../../data/item_defs.dart';
+import '../chicken_up_game.dart';
 
-/// A galinha jogável. Física de pulo portada da versão web: gravidade
-/// constante, impulso ao tocar e um pulo mais alto se o toque for segurado
-/// ("toque e segure para pular mais alto").
+/// A galinha jogável. Física portada da versão web:
+/// - Corrida: gravidade constante, impulso ao tocar, pulo mais alto se segurar,
+///   e pulo duplo quando tem carga do power-up "Asas".
+/// - Voo: sobe enquanto segura, cai quando solta, com resistência do ar e
+///   limite de velocidade vertical (as constantes de FlyPhysics).
 class Player extends PositionComponent {
   static const double gravity = 1900;
   static const double jumpImpulse = -650;
@@ -14,24 +18,39 @@ class Player extends PositionComponent {
   double velocityY = 0;
   bool onGround = true;
   bool holding = false;
+  bool flyHolding = false;
   double holdTime = 0;
+  int doubleJumpCharges = 0;
+  double gravityMult = 1;
+  GameMode mode = GameMode.run;
 
   SkinDef skin;
   HatDef? hat;
   final double groundY;
 
-  /// Ângulo de balanço das pernas, só pra dar vida quando está correndo.
   double _runCycle = 0;
+  double _wingFlap = 0;
 
   Player({required this.groundY, required this.skin, this.hat})
       : super(size: Vector2(46, 46), anchor: Anchor.bottomCenter);
 
-  void jump() {
-    if (!onGround) return;
-    velocityY = jumpImpulse;
-    onGround = false;
-    holding = true;
-    holdTime = 0;
+  /// Retorna true se realmente pulou (para contar nas estatísticas).
+  bool jump() {
+    if (onGround) {
+      velocityY = jumpImpulse;
+      onGround = false;
+      holding = true;
+      holdTime = 0;
+      return true;
+    }
+    if (doubleJumpCharges > 0) {
+      doubleJumpCharges--;
+      velocityY = jumpImpulse * 0.9;
+      holding = true;
+      holdTime = 0;
+      return true;
+    }
+    return false;
   }
 
   void releaseHold() => holding = false;
@@ -39,11 +58,21 @@ class Player extends PositionComponent {
   @override
   void update(double dt) {
     super.update(dt);
+    final dtMs = dt * 1000;
+
+    if (mode == GameMode.fly) {
+      _updateFly(dtMs);
+    } else {
+      _updateRun(dt);
+    }
+  }
+
+  void _updateRun(double dt) {
     if (holding && holdTime < maxHoldTime && velocityY < 0) {
       velocityY += holdBoost * dt * 0.5;
       holdTime += dt;
     }
-    velocityY += gravity * dt;
+    velocityY += gravity * gravityMult * dt;
     position.y += velocityY * dt;
     if (position.y >= groundY) {
       position.y = groundY;
@@ -52,6 +81,32 @@ class Player extends PositionComponent {
       holding = false;
     }
     if (onGround) _runCycle += dt * 12;
+  }
+
+  void _updateFly(double dtMs) {
+    // as constantes da web estão em px/ms
+    if (flyHolding) {
+      velocityY -= FlyPhysics.lift * dtMs;
+      _wingFlap += dtMs * 0.02;
+    } else {
+      velocityY += FlyPhysics.gravity * gravityMult * dtMs;
+    }
+    // resistência do ar suaviza a curva
+    velocityY -= velocityY * FlyPhysics.airResistance * dtMs;
+    velocityY = velocityY.clamp(-FlyPhysics.maxVSpeed, FlyPhysics.maxVSpeed);
+    position.y += velocityY * dtMs;
+
+    // limites da tela com resistência suave
+    if (position.y < size.y + FlyPhysics.boundsPad) {
+      position.y = size.y + FlyPhysics.boundsPad;
+      if (velocityY < 0) velocityY = 0;
+    }
+    final maxY = groundY + 60;
+    if (position.y > maxY) {
+      position.y = maxY;
+      if (velocityY > 0) velocityY = 0;
+    }
+    _wingFlap += dtMs * 0.008;
   }
 
   Rect get hitbox => Rect.fromLTWH(
@@ -64,27 +119,26 @@ class Player extends PositionComponent {
   @override
   void render(Canvas canvas) {
     final w = size.x, h = size.y;
-    final legPaint = Paint()..color = skin.leg;
+    final legPaint = Paint()
+      ..color = skin.leg
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
     final bodyPaint = Paint()..color = skin.body;
     final tailAPaint = Paint()..color = skin.tailA;
     final tailBPaint = Paint()..color = skin.tailB;
     final combPaint = Paint()..color = skin.comb;
     final beakPaint = Paint()..color = skin.beak;
 
-    // pernas (balançam enquanto corre)
-    final swing = onGround ? (0.18 * (0.5 - (_runCycle % 1))) : 0.0;
-    canvas.save();
+    // pernas
+    final swing = (mode == GameMode.run && onGround)
+        ? (0.18 * (0.5 - (_runCycle % 1)))
+        : 0.12; // recolhidas no ar
     for (final side in [-1.0, 1.0]) {
       final lx = w * 0.42 + side * w * 0.12;
-      canvas.drawLine(
-        Offset(lx, -h * 0.18),
-        Offset(lx + side * swing * w, 0),
-        legPaint..strokeWidth = 3.5..strokeCap = StrokeCap.round,
-      );
+      canvas.drawLine(Offset(lx, -h * 0.18), Offset(lx + side * swing * w, 0), legPaint);
     }
-    canvas.restore();
 
-    // cauda (duas penas sobrepostas)
+    // cauda
     final tailA = Path()
       ..moveTo(w * 0.05, -h * 0.55)
       ..lineTo(-w * 0.26, -h * 0.86)
@@ -100,6 +154,17 @@ class Player extends PositionComponent {
 
     // corpo
     canvas.drawOval(Rect.fromLTWH(0, -h * 0.92, w * 0.8, h * 0.82), bodyPaint);
+
+    // asa (bate no modo voo)
+    if (mode == GameMode.fly) {
+      final flap = (_wingFlap % 1) * 2 - 1;
+      final wing = Path()
+        ..moveTo(w * 0.25, -h * 0.62)
+        ..quadraticBezierTo(w * 0.42, -h * (0.62 + 0.28 * flap.abs()), w * 0.58, -h * 0.55)
+        ..quadraticBezierTo(w * 0.42, -h * 0.44, w * 0.25, -h * 0.62)
+        ..close();
+      canvas.drawPath(wing, Paint()..color = skin.tailA);
+    }
 
     // crista
     for (int i = 0; i < 3; i++) {
@@ -117,7 +182,7 @@ class Player extends PositionComponent {
     // olho
     canvas.drawCircle(Offset(w * 0.56, -h * 0.72), 2.4, Paint()..color = const Color(0xFF2B2B2B));
 
-    // chapéu (emoji desenhado por cima, igual a versão web faz no canvas)
+    // chapéu
     final hatDef = hat;
     if (hatDef != null && hatDef.id != 'none' && hatDef.emoji.isNotEmpty) {
       final tp = TextPainter(

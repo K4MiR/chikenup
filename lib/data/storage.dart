@@ -71,6 +71,16 @@ class Storage {
   static Future<void> setUnlockedAchievements(List<String> v) =>
       _prefs.setStringList('chickenup_achievements', v);
 
+
+  // ---- laboratório ----
+  static List<String> get labMods =>
+      _prefs.getStringList('chickenup_labmods') ?? const [];
+  static Future<void> setLabMods(List<String> v) =>
+      _prefs.setStringList('chickenup_labmods', v);
+
+  static String get gravityMode => _prefs.getString('chickenup_gravity') ?? 'normal';
+  static Future<void> setGravityMode(String v) => _prefs.setString('chickenup_gravity', v);
+
   // ---- perfil ----
   static String get nickname => _prefs.getString('chickenup_nickname') ?? '';
   static Future<void> setNickname(String v) => _prefs.setString('chickenup_nickname', v);

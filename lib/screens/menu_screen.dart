@@ -5,6 +5,8 @@ import '../game/chicken_up_game.dart';
 import '../ui/theme.dart';
 import '../ui/wood_widgets.dart';
 import 'achievements_screen.dart';
+import 'daily_reward_box.dart';
+import 'lab_screen.dart';
 import 'settings_screen.dart';
 import 'shop_screen.dart';
 import 'stats_screen.dart';
@@ -55,11 +57,19 @@ class _MenuScreenState extends State<MenuScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.s24),
+                DailyRewardBox(
+                  onClaimed: (reward) async {
+                    final novo = widget.game.cornBalance.value + reward;
+                    widget.game.cornBalance.value = novo;
+                    await Storage.setCornBalance(novo);
+                  },
+                ),
                 WoodButton(
                   label: I18n.t('startBtn'),
                   color: WoodBtnColor.yellow,
                   primary: true,
-                  onPressed: widget.game.startRun,
+                  onPressed: () =>
+                      widget.game.runState.value = RunState.modeSelect,
                 ),
                 const SizedBox(height: AppSpacing.s12),
                 WoodButton(
@@ -97,7 +107,7 @@ class _MenuScreenState extends State<MenuScreen> {
                     WoodIconButton(
                       tooltip: I18n.t('labBtn'),
                       icon: const Icon(Icons.science, color: Colors.white),
-                      onPressed: () {},
+                      onPressed: () => _open(const _LabRoute()),
                     ),
                     WoodIconButton(
                       tooltip: I18n.t('configBtn'),
@@ -129,6 +139,7 @@ class _MenuScreenState extends State<MenuScreen> {
         _AchRoute() => const AchievementsScreen(),
         _StatsRoute() => const StatsScreen(),
         _SettingsRoute() => const SettingsScreen(),
+        _LabRoute() => const LabScreen(),
       },
     ).then((_) {
       if (mounted) setState(() {});
@@ -154,4 +165,8 @@ class _StatsRoute extends _Route {
 
 class _SettingsRoute extends _Route {
   const _SettingsRoute();
+}
+
+class _LabRoute extends _Route {
+  const _LabRoute();
 }
