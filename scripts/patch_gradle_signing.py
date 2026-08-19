@@ -5,8 +5,17 @@ gerado pelo `flutter create`. Roda a cada build no CI (o android/ nao fica
 versionado no repo, e recriado do zero pelo Flutter em cada execucao), entao
 este patch precisa ser idempotente e tolerar tanto o formato Groovy (.gradle)
 quanto o Kotlin DSL (.gradle.kts) usados por diferentes versoes do Flutter.
+
+Estrategia: em vez de tentar localizar o bloco `release { ... }` inteiro
+(a sintaxe varia bastante entre versoes do Android Gradle Plugin — `release {`
+vs `getByName("release") {`), so troca a linha
+`signingConfig = signingConfigs.getByName("debug")` (kts) ou
+`signingConfig signingConfigs.debug` (groovy) por uma equivalente apontando
+pra "release". Essa linha e gerada pelo `flutter create` de forma bem estavel
+em todas as versoes recentes, entao e um alvo mais confiavel.
 """
 import pathlib
+import re
 import sys
 
 app_dir = pathlib.Path("android/app")
@@ -56,18 +65,14 @@ if (keystorePropertiesFile.exists()) {
         print("ERRO: bloco buildTypes nao encontrado (kts)")
         sys.exit(1)
     text = text.replace(marker, signing_block + "    " + marker, 1)
-    text = text.replace(
-        'getByName("release") {\n            signingConfig = signingConfigs.getByName("debug")',
-        'getByName("release") {\n            signingConfig = signingConfigs.getByName("release")',
-    )
-    if 'signingConfig = signingConfigs.getByName("release")' not in text:
-        # fallback: insere signingConfig na primeira ocorrencia de getByName("release") { ... }
-        idx = text.find('getByName("release") {')
-        if idx == -1:
-            print("ERRO: bloco release do buildTypes nao encontrado (kts)")
-            sys.exit(1)
-        insert_at = text.find("{", idx) + 1
-        text = text[:insert_at] + '\n            signingConfig = signingConfigs.getByName("release")' + text[insert_at:]
+
+    debug_ref = re.compile(r'signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)')
+    if not debug_ref.search(text):
+        print("ERRO: referencia 'signingConfig = signingConfigs.getByName(\"debug\")' nao encontrada (kts)")
+        print("----- conteudo do arquivo para debug -----")
+        print(text)
+        sys.exit(1)
+    text = debug_ref.sub('signingConfig = signingConfigs.getByName("release")', text, count=1)
 else:
     header = '''import java.util.Properties
 import java.io.FileInputStream
@@ -79,7 +84,6 @@ if (keystorePropertiesFile.exists()) {
 }
 
 '''
-    # insere apos a ultima linha de "apply plugin" / "plugins {" bloco, ou no topo
     text = header + text
 
     signing_block = '''    signingConfigs {
@@ -96,10 +100,14 @@ if (keystorePropertiesFile.exists()) {
         print("ERRO: bloco buildTypes nao encontrado (groovy)")
         sys.exit(1)
     text = text.replace(marker, signing_block + "    " + marker, 1)
-    text = text.replace(
-        "signingConfig signingConfigs.debug",
-        "signingConfig signingConfigs.release",
-    )
+
+    debug_ref = re.compile(r'signingConfig\s+signingConfigs\.debug')
+    if not debug_ref.search(text):
+        print("ERRO: referencia 'signingConfig signingConfigs.debug' nao encontrada (groovy)")
+        print("----- conteudo do arquivo para debug -----")
+        print(text)
+        sys.exit(1)
+    text = debug_ref.sub('signingConfig signingConfigs.release', text, count=1)
 
 path.write_text(text)
 print(f"Signing config inserida em {path}")
