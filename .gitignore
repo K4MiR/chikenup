@@ -7,16 +7,24 @@ build/
 .pub-cache/
 .pub/
 
-# Plataformas geradas — recriadas do zero em cada build do CI
+# Plataformas geradas pelo Flutter — recriadas do zero em cada build do CI
 # (ver scripts/patch_gradle_signing.py e .github/workflows/build.yml).
 # Se for abrir o projeto localmente, rode primeiro:
 #   flutter create --platforms=android --org com.shiftcriativo --project-name chickenup .
-android/
-ios/
-linux/
-macos/
-windows/
-web/
+# ATENCAO: as regras abaixo sao ancoradas na raiz (barra no inicio) para NAO
+# afetarem legacy-capacitor/android, que precisa ser versionado.
+/android/
+/ios/
+/linux/
+/macos/
+/windows/
+/web/
+
+# Artefatos de build do projeto Capacitor
+legacy-capacitor/android/build/
+legacy-capacitor/android/app/build/
+legacy-capacitor/android/.gradle/
+legacy-capacitor/node_modules/
 
 # Segredos — nunca comitar
 key.properties

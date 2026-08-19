@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Chicken Up</string>
+    <string name="title_activity_main">Chicken Up</string>
+    <string name="package_name">com.shiftcriativo.chickenup</string>
+    <string name="custom_url_scheme">com.shiftcriativo.chickenup</string>
+</resources>

@@ -1,0 +1,106 @@
+name: (Capacitor) Build AAB para Play Store
+
+# Builda o app Capacitor (versao completa do jogo, em legacy-capacitor/)
+# e assina com a NOVA upload key guardada nos secrets.
+#
+# Antes do primeiro build, rode "(Capacitor) Gerar nova upload key" e
+# configure os secrets: LEGACY_KEYSTORE_BASE64, LEGACY_KEYSTORE_PASSWORD,
+# LEGACY_KEY_ALIAS.
+on:
+  workflow_dispatch:
+    inputs:
+      versionCode:
+        description: 'versionCode (aumente a cada envio na Play Store)'
+        required: true
+        default: '2'
+      versionName:
+        description: 'versionName visivel ao usuario'
+        required: true
+        default: '1.0.1'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: legacy-capacitor
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Checar secrets de assinatura
+        run: |
+          if [ -z "${{ secrets.LEGACY_KEYSTORE_BASE64 }}" ]; then
+            echo "::error::Secret LEGACY_KEYSTORE_BASE64 nao configurado. Rode o workflow '(Capacitor) Gerar nova upload key' primeiro."
+            exit 1
+          fi
+
+      - name: Aplicar versionCode / versionName
+        run: |
+          sed -i "s/versionCode .*/versionCode ${{ inputs.versionCode }}/" android/app/build.gradle
+          sed -i "s/versionName \".*\"/versionName \"${{ inputs.versionName }}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+
+      - name: Configurar assinatura no Gradle
+        working-directory: .
+        run: python3 scripts/patch_legacy_signing.py
+
+      - name: Decodificar keystore
+        run: echo "${{ secrets.LEGACY_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+
+      - name: Escrever key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.LEGACY_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.LEGACY_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.LEGACY_KEY_ALIAS }}
+          storeFile=upload-keystore.jks
+          EOF
+
+      - name: Build AAB (Play Store)
+        working-directory: legacy-capacitor/android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon
+
+      - name: Build APK (teste no celular)
+        working-directory: legacy-capacitor/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: chickenup-capacitor-aab
+          path: legacy-capacitor/android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: chickenup-capacitor-apk
+          path: legacy-capacitor/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Publicar como release (link direto)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: capacitor-v${{ inputs.versionName }}
+          name: Chicken Up (Capacitor) v${{ inputs.versionName }}
+          body: |
+            Build da versao completa (Capacitor), assinada com a nova upload key.
+
+            - `app-release.aab` — envie este na Play Store
+            - `app-release.apk` — para testar no celular antes de publicar
+
+            versionCode ${{ inputs.versionCode }} / versionName ${{ inputs.versionName }}
+          files: |
+            legacy-capacitor/android/app/build/outputs/bundle/release/app-release.aab
+            legacy-capacitor/android/app/build/outputs/apk/release/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

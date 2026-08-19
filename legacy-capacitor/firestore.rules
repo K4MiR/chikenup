@@ -1,0 +1,49 @@
+rules_version = '2';
+
+// Regras do ranking global (Chicken Up).
+// Cada jogador só pode ler o ranking inteiro (é público, é um leaderboard),
+// mas só pode escrever no PRÓPRIO documento — nunca no de outro jogador.
+// O uid vem exclusivamente do Firebase Authentication (auth.uid), nunca de
+// um campo enviado pelo cliente, então não dá pra falsificar "sou outro uid".
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Validação mínima contra client mandando valores absurdos direto no
+    // documento (item 11/28 do spec). Não substitui validação de gameplay
+    // real, mas barra o caso óbvio de "gravar 999999999" sem checagem nenhuma.
+    function hasValidScoreFields() {
+      let d = request.resource.data;
+      return d.bestScore is int
+        && d.bestScore >= 0
+        && d.bestScore <= 200000
+        && d.uid == request.auth.uid
+        && d.displayName is string
+        && d.displayName.size() <= 40;
+    }
+
+    match /leaderboard/{uid} {
+      allow read: if true; // ranking é público
+      allow create, update: if isOwner(uid) && hasValidScoreFields();
+      allow delete: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(uid) && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Tudo o mais fica fechado por padrão.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
