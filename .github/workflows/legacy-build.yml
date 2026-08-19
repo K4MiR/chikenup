@@ -36,6 +36,17 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # O modulo :capacitor-android vem de node_modules/@capacitor/android
+      # (ver capacitor.settings.gradle), entao o npm install e obrigatorio
+      # antes do Gradle — senao ele falha com "No variants exist".
+      - name: Instalar dependencias do Capacitor
+        run: npm install
+
       - name: Checar secrets de assinatura
         run: |
           if [ -z "${{ secrets.LEGACY_KEYSTORE_BASE64 }}" ]; then
