@@ -1,0 +1,31 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+
+# Plataformas geradas — recriadas do zero em cada build do CI
+# (ver scripts/patch_gradle_signing.py e .github/workflows/build.yml).
+# Se for abrir o projeto localmente, rode primeiro:
+#   flutter create --platforms=android --org com.shiftcriativo --project-name chickenup .
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+
+# Segredos — nunca comitar
+key.properties
+*.jks
+*.keystore
+keystore-info.txt
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
