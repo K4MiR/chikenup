@@ -72,15 +72,15 @@
     box-shadow: inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -6px 10px rgba(0,0,0,0.22), var(--shadow-modal);
   }
   /* barra de rolagem customizada (madeira) — WebKit/Blink (Android WebView) */
-  .woodModal::-webkit-scrollbar, #menuPanelScroll::-webkit-scrollbar, #shopScrollArea::-webkit-scrollbar, #achScrollArea::-webkit-scrollbar, #statsScrollArea::-webkit-scrollbar, #privacyScrollArea::-webkit-scrollbar, #termsScrollArea::-webkit-scrollbar { width: 10px; }
-  .woodModal::-webkit-scrollbar-track, #menuPanelScroll::-webkit-scrollbar-track, #shopScrollArea::-webkit-scrollbar-track, #achScrollArea::-webkit-scrollbar-track, #statsScrollArea::-webkit-scrollbar-track, #privacyScrollArea::-webkit-scrollbar-track, #termsScrollArea::-webkit-scrollbar-track {
+  .woodModal::-webkit-scrollbar, #menuPanelScroll::-webkit-scrollbar, #shopScrollArea::-webkit-scrollbar, #achScrollArea::-webkit-scrollbar, #rankingScrollArea::-webkit-scrollbar, #statsScrollArea::-webkit-scrollbar, #privacyScrollArea::-webkit-scrollbar, #termsScrollArea::-webkit-scrollbar { width: 10px; }
+  .woodModal::-webkit-scrollbar-track, #menuPanelScroll::-webkit-scrollbar-track, #shopScrollArea::-webkit-scrollbar-track, #achScrollArea::-webkit-scrollbar-track, #rankingScrollArea::-webkit-scrollbar-track, #statsScrollArea::-webkit-scrollbar-track, #privacyScrollArea::-webkit-scrollbar-track, #termsScrollArea::-webkit-scrollbar-track {
     background: rgba(0,0,0,0.2); border-radius: var(--radius-pill); margin: 8px 0;
   }
-  .woodModal::-webkit-scrollbar-thumb, #menuPanelScroll::-webkit-scrollbar-thumb, #shopScrollArea::-webkit-scrollbar-thumb, #achScrollArea::-webkit-scrollbar-thumb, #statsScrollArea::-webkit-scrollbar-thumb, #privacyScrollArea::-webkit-scrollbar-thumb, #termsScrollArea::-webkit-scrollbar-thumb {
+  .woodModal::-webkit-scrollbar-thumb, #menuPanelScroll::-webkit-scrollbar-thumb, #shopScrollArea::-webkit-scrollbar-thumb, #achScrollArea::-webkit-scrollbar-thumb, #rankingScrollArea::-webkit-scrollbar-thumb, #statsScrollArea::-webkit-scrollbar-thumb, #privacyScrollArea::-webkit-scrollbar-thumb, #termsScrollArea::-webkit-scrollbar-thumb {
     background: var(--corn-yellow); border-radius: var(--radius-pill); border: 2px solid var(--wood-dark);
   }
-  .woodModal::-webkit-scrollbar-thumb:active, #menuPanelScroll::-webkit-scrollbar-thumb:active, #shopScrollArea::-webkit-scrollbar-thumb:active, #achScrollArea::-webkit-scrollbar-thumb:active, #statsScrollArea::-webkit-scrollbar-thumb:active, #privacyScrollArea::-webkit-scrollbar-thumb:active, #termsScrollArea::-webkit-scrollbar-thumb:active { background: #ffb300; }
-  .woodModal, #menuPanelScroll, #shopScrollArea, #achScrollArea, #statsScrollArea, #privacyScrollArea, #termsScrollArea { scrollbar-width: thin; scrollbar-color: var(--corn-yellow) rgba(0,0,0,0.2); }
+  .woodModal::-webkit-scrollbar-thumb:active, #menuPanelScroll::-webkit-scrollbar-thumb:active, #shopScrollArea::-webkit-scrollbar-thumb:active, #achScrollArea::-webkit-scrollbar-thumb:active, #rankingScrollArea::-webkit-scrollbar-thumb:active, #statsScrollArea::-webkit-scrollbar-thumb:active, #privacyScrollArea::-webkit-scrollbar-thumb:active, #termsScrollArea::-webkit-scrollbar-thumb:active { background: #ffb300; }
+  .woodModal, #menuPanelScroll, #shopScrollArea, #achScrollArea, #rankingScrollArea, #statsScrollArea, #privacyScrollArea, #termsScrollArea { scrollbar-width: thin; scrollbar-color: var(--corn-yellow) rgba(0,0,0,0.2); }
   .woodRivet {
     position: absolute; width: 9px; height: 9px; border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, #cfcfcf, #6b6b6b 60%, #3a3a3a);
@@ -283,10 +283,11 @@
   .modeCardTags { font-size: 12px; font-weight: 800; letter-spacing: .5px; color: var(--wood); margin-bottom: var(--space-16); }
   .modeCard .woodBtn { width: 100%; box-sizing: border-box; }
   .shopPanelLike h2 { color: inherit; text-shadow: none; }
-  #shopPanel, #achPanel, #statsPanel { display: flex; flex-direction: column; overflow: hidden; }
-  #shopHeader, #achHeader, #statsHeader { flex-shrink: 0; }
-  #shopScrollArea, #achScrollArea, #statsScrollArea { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
-  #shopPanel #closeShopBtn, #achPanel #closeAchBtn, #statsPanel #closeStatsBtn { flex-shrink: 0; margin-top: 12px; }
+  #shopPanel, #achPanel, #statsPanel, #rankingPanel { display: flex; flex-direction: column; overflow: hidden; }
+  #shopHeader, #achHeader, #statsHeader, #rankingHeader { flex-shrink: 0; }
+  #shopScrollArea, #achScrollArea, #statsScrollArea, #rankingScrollArea { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+  #shopPanel #closeShopBtn, #achPanel #closeAchBtn, #statsPanel #closeStatsBtn, #rankingPanel #closeRankingBtn { flex-shrink: 0; margin-top: 12px; }
+  #rankingPanel #rankingMeBar { flex-shrink: 0; }
   #shopCornBalance { font-weight: bold; margin-bottom: 14px; display: flex; align-items: center; justify-content: center; gap: 4px; }
   #skinShowcase {
     background: var(--cream); border: 3px solid #e8d9b5; border-radius: 24px; padding: 20px 16px 18px;
@@ -531,7 +532,14 @@
   .rankAvatar svg { width: 65%; height: 65%; color: var(--wood); }
   .rankInfo { flex: 1; min-width: 0; }
   .rankName { font-weight: 800; font-size: 13px; color: var(--dark-brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rankScore { font-size: 12px; color: var(--wood-dark); opacity: 0.8; }
+  /* A pontuacao e a informacao principal da linha: fica com a fonte do jogo,
+     alinhada a direita e sem opacidade, pra ler de relance nas 15 posicoes. */
+  .rankScore {
+    font-family: var(--font-game); font-weight: 800; font-size: 14px;
+    color: var(--wood-dark); text-align: right; flex-shrink: 0; white-space: nowrap;
+  }
+  .rankRow.top1 .rankScore { font-size: 17px; color: #7a5a00; }
+  .rankRow.top2 .rankScore, .rankRow.top3 .rankScore { font-size: 15px; }
   .rankRow.top1 {
     background: linear-gradient(135deg, #FFE9A8, #FFC83D); border-color: #E8A800; box-shadow: 0 4px 10px rgba(232,168,0,0.35);
     padding: 12px 10px;
@@ -879,10 +887,14 @@
 <div id="rankingOverlay" class="hidden">
   <div id="rankingPanel" class="woodPanel woodModal">
     <button class="woodIconBtn gameCloseBtn" data-close-overlay="rankingOverlay" title="Fechar"></button>
-    <h2><span class="hudIcon" id="rankingTitleIcon"></span><span id="rankingTitleText">Ranking Global</span></h2>
-    <button class="woodIconBtn small" id="rankingRefreshBtn" title="Atualizar"></button>
-    <div id="rankingStateMsg"></div>
-    <div id="rankingList"></div>
+    <div id="rankingHeader">
+      <h2><span class="hudIcon" id="rankingTitleIcon"></span><span id="rankingTitleText">Ranking Global</span></h2>
+      <button class="woodIconBtn small" id="rankingRefreshBtn" title="Atualizar"></button>
+    </div>
+    <div id="rankingScrollArea">
+      <div id="rankingStateMsg"></div>
+      <div id="rankingList"></div>
+    </div>
     <div id="rankingMeBar" class="hidden">
       <div id="rankingMePos"></div>
       <div id="rankingMeInfo">
@@ -1329,13 +1341,17 @@
       });
     }
 
-    function getTop20() {
+    // Quantos jogadores o ranking global lista. A lista rola dentro do painel,
+    // entao da pra subir esse numero sem estourar a altura do modal.
+    var RANKING_SIZE = 15;
+
+    function getTopPlayers() {
       return init().then(function (available) {
         if (!available) return null;
         return db.collection('leaderboard')
           .orderBy('bestScore', 'desc')
           .orderBy('scoreAchievedAt', 'asc')
-          .limit(20)
+          .limit(RANKING_SIZE)
           .get()
           .then(function (snap) {
             var rows = [];
@@ -1358,7 +1374,7 @@
 
     return {
       isAvailable: isAvailable, init: init, submitScoreIfRecord: submitScoreIfRecord,
-      getTop20: getTop20, getMyPosition: getMyPosition, getUid: function () { return uid; },
+      getTopPlayers: getTopPlayers, getMyPosition: getMyPosition, getUid: function () { return uid; },
       signInWithGoogle: signInWithGoogle, signOutGoogle: signOutGoogle, getGoogleProfile: getGoogleProfile
     };
   })();
@@ -3830,7 +3846,7 @@
     setRankingState('loading', t('rankLoading', 'Carregando ranking...'));
     var myScore = Math.floor(Math.max(getHigh(), getHighFly()));
     if (myScore <= 0) {
-      Promise.all([Leaderboard.getTop20(), Leaderboard.init()]).then(function (res) {
+      Promise.all([Leaderboard.getTopPlayers(), Leaderboard.init()]).then(function (res) {
         var rows = res[0];
         if (!rows) { setRankingState('offline', t('rankOfflineTryLater', 'Você está offline. Tente novamente mais tarde.')); return; }
         if (!rows.length) { setRankingState('empty', t('rankEmpty', 'Ainda não há jogadores no ranking. Seja o primeiro!')); return; }
@@ -3841,7 +3857,7 @@
       }).catch(function () { setRankingState('error', t('rankLoadError', 'Não foi possível carregar o ranking agora.')); });
       return;
     }
-    Promise.all([Leaderboard.getTop20(), Leaderboard.getMyPosition(myScore)]).then(function (res) {
+    Promise.all([Leaderboard.getTopPlayers(), Leaderboard.getMyPosition(myScore)]).then(function (res) {
       var rows = res[0], myPos = res[1];
       if (!rows) { setRankingState('offline', t('rankOfflineTryLater', 'Você está offline. Tente novamente mais tarde.')); return; }
       if (!rows.length) { setRankingState('empty', t('rankEmpty', 'Ainda não há jogadores no ranking. Seja o primeiro!')); return; }
@@ -3861,6 +3877,8 @@
     e.stopPropagation();
     rankingOverlay.classList.remove('hidden');
     rankingPanel.scrollTop = 0;
+    var rankScroll = document.getElementById('rankingScrollArea');
+    if (rankScroll) rankScroll.scrollTop = 0;
     trackEvent('ranking_opened', {});
     loadRanking();
   });
