@@ -8,6 +8,9 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+permissions:
+  contents: write # necessario para publicar o Release com o APK
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -70,3 +73,22 @@ jobs:
         with:
           name: chickenup-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
+
+      # Publica tambem como Release (tag "latest"), porque artifact do Actions
+      # so baixa logado e como .zip — o Release da um link direto pro .apk,
+      # que funciona ate abrindo no navegador do proprio celular.
+      - name: Publish APK as "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Chicken Up — build mais recente
+          body: |
+            APK assinado gerado automaticamente a partir do commit ${{ github.sha }}.
+
+            - `app-release.apk` — instale direto no celular
+            - `app-release.aab` — para enviar à Play Store
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
