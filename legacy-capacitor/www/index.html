@@ -152,6 +152,30 @@
   }
   .gameCloseBtn svg { width: 16px; height: 16px; color: #fff; }
 
+
+  /* ===== Tela de boas-vindas (primeira abertura) ===== */
+  #welcomeOverlay {
+    position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #1F8BEF 0%, #8EC5F5 100%);
+    padding: 20px; box-sizing: border-box; animation: overlayFadeIn 220ms ease;
+  }
+  #welcomeOverlay.hidden { display: none; }
+  #welcomePanel {
+    max-width: 380px; width: 100%; padding: var(--space-24) var(--space-20);
+    box-sizing: border-box; text-align: center;
+    animation: modalPopIn 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  #welcomeLogo {
+    width: 100%; max-width: 300px; height: auto; display: block; margin: 0 auto var(--space-8);
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,0.28));
+  }
+  #welcomeSub {
+    color: var(--cream); font-size: 15px; margin: 0 0 var(--space-20);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.3);
+  }
+  #welcomePanel .woodBtn { width: 100%; box-sizing: border-box; margin-bottom: var(--space-12); }
+  #welcomeNote { font-size: 12px; opacity: .85; margin: var(--space-4) 0 0; color: var(--cream); }
+
   #hud {
     position: fixed; top: 0; left: 0; width: 100%;
     display: flex; justify-content: space-between; box-sizing: border-box;
@@ -720,6 +744,20 @@
       <button class="woodBtn woodBtn--blue" id="playFlyBtn">JOGAR</button>
     </div>
     <button class="woodBtn woodBtn--red" id="closeModeSelectBtn">VOLTAR</button>
+  </div>
+</div>
+
+<div id="welcomeOverlay" class="hidden">
+  <div id="welcomePanel" class="woodPanel">
+    <div class="woodRivet" style="top:10px;left:10px"></div>
+    <div class="woodRivet" style="top:10px;right:10px"></div>
+    <div class="woodRivet" style="bottom:10px;left:10px"></div>
+    <div class="woodRivet" style="bottom:10px;right:10px"></div>
+    <img id="welcomeLogo" src="img/logo.png" alt="Chicken Up">
+    <p id="welcomeSub">Entre para salvar seu recorde no ranking global!</p>
+    <button class="woodBtn woodBtn--white" id="welcomeGoogleBtn"><span class="btnIcon" id="welcomeGoogleIcon"></span><span id="welcomeGoogleText">ENTRAR COM GOOGLE</span></button>
+    <button class="woodBtn woodBtn--yellow" id="welcomeGuestBtn"><span id="welcomeGuestText">ENTRAR COMO CONVIDADO</span></button>
+    <p class="hint" id="welcomeNote">Você pode entrar com o Google depois, no Perfil.</p>
   </div>
 </div>
 
@@ -3089,7 +3127,12 @@
       labModsActiveToast: 'Lab modifiers active!',
       chaosModeToast: 'Chaos mode activated!',
       shieldAbsorbedToast: 'The shield absorbed the impact!',
-      recordLabel: 'RECORD '
+      recordLabel: 'RECORD ',
+      welcomeSub: 'Sign in to save your record on the global ranking!',
+      welcomeGoogleText: 'SIGN IN WITH GOOGLE',
+      welcomeGuestText: 'CONTINUE AS GUEST',
+      welcomeNote: 'You can sign in with Google later, in your Profile.',
+      welcomeSignedIn: 'Signed in!'
     }
   };
 
@@ -3125,7 +3168,8 @@
     'cfgLangTitleLabel', 'cfgAccountTitleLabel', 'cfgGoogleSignInText', 'cfgSignOutBtn',
     'cfgPrivacyTitleLabel', 'cfgAnalyticsLabel', 'cfgDataTitleLabel', 'cfgOpenStatsBtnText',
     'cfgAboutTitleLabel', 'closeConfigBtn', 'openPrivacyBtnText', 'openTermsBtnText',
-    'privacyTitle', 'closePrivacyBtn', 'termsTitle', 'closeTermsBtn'];
+    'privacyTitle', 'closePrivacyBtn', 'termsTitle', 'closeTermsBtn',
+    'welcomeSub', 'welcomeGoogleText', 'welcomeGuestText', 'welcomeNote'];
   var I18N_TITLE_ELEMENTS = { profileBtn: 'profileBtn', rankingBtn: 'rankingBtn', achBtn: 'achBtn',
     statsBtn: 'statsBtn', labBtn: 'labBtn', configBtn: 'configBtn' };
 
@@ -6593,6 +6637,49 @@
   wireBackdropClose(labOverlay, labPanel);
   wireBackdropClose(configOverlay, configPanel);
 
+
+  // ======================= TELA DE BOAS-VINDAS =======================
+  // Aparece só na primeira abertura. O jogo sempre entra como convidado
+  // (uid anônimo) por baixo dos panos; aqui o jogador escolhe se já quer
+  // vincular a conta Google ou seguir como convidado e decidir depois.
+  var WELCOME_SEEN_KEY = 'chickenup_welcome_seen';
+  var welcomeOverlay = document.getElementById('welcomeOverlay');
+  var welcomeGoogleBtn = document.getElementById('welcomeGoogleBtn');
+  var welcomeGuestBtn = document.getElementById('welcomeGuestBtn');
+  document.getElementById('welcomeGoogleIcon').innerHTML = icon('google');
+
+  function hideWelcome() {
+    localStorage.setItem(WELCOME_SEEN_KEY, '1');
+    welcomeOverlay.classList.add('hidden');
+  }
+
+  function maybeShowWelcome() {
+    if (localStorage.getItem(WELCOME_SEEN_KEY)) return;
+    if (!Leaderboard.isAvailable()) { hideWelcome(); return; }
+    welcomeOverlay.classList.remove('hidden');
+  }
+
+  welcomeGuestBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    hideWelcome();
+  });
+
+  welcomeGoogleBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    welcomeGoogleBtn.disabled = true;
+    Leaderboard.signInWithGoogle().then(function (profile) {
+      welcomeGoogleBtn.disabled = false;
+      hideWelcome();
+      if (profile) {
+        renderProfile();
+        renderAccountSection();
+        queueToast('check', t('welcomeSignedIn', 'Conectado!'));
+      }
+    }).catch(function () {
+      welcomeGoogleBtn.disabled = false;
+    });
+  });
+
   // inicialização
   resetGame();
   initWorms();
@@ -6605,6 +6692,7 @@
   startBtn.textContent = t('startBtn', 'JOGAR');
   highLabel.textContent = t('recordLabel', 'RECORDE ') + pad(getCurrentHigh());
   applyTranslations();
+  maybeShowWelcome();
 
   requestAnimationFrame(loop);
 })();
